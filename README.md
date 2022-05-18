@@ -22,9 +22,9 @@ ESC to exit.
 Usage:
 
 ```
-$ ./play.py -h
+$ ./chess.py -h
 
-usage: play.py [-h] [-V] [-s [{0,1}]] [-t] [-d]
+usage: chess.py [-h] [-V] [-s [{0,1}]] [-t] [-d]
 
 Play Chess in the terminal. Written in Python.
 
