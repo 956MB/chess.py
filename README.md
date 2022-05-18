@@ -21,7 +21,7 @@ ESC to exit.
 
 Usage:
 
-```
+```shell
 $ ./chess.py -h
 
 usage: chess.py [-h] [-V] [-s [{0,1}]] [-t] [-d]
