@@ -2,16 +2,15 @@
 # -*- coding: utf-8 -*- 
 from __future__ import print_function
 import numpy as np
-import os, csv, sys, random, time, string
-import shutil
-import os, termios, tty
+import os, sys, random, string
+import termios, tty
 import argparse
 from time import sleep
 
 class Chess(object):
     def __init__(self, cursor=[7,0], starter=1, touch_move_on=False, show_debug=False):
-        self.rooks_red, self.knights_red, self.bishops_red, self.queens_red, self.kings_red, self.pawns_red = [0,7], [1,6], [2,5], [3], [4], [8,9,10,11,12,13,14,15]        
-        self.rooks_blue, self.knights_blue, self.bishops_blue, self.queens_blue, self.kings_blue, self.pawns_blue = [56,63], [57,62], [58,61], [59], [60], [48,49,50,51,52,53,54,55]
+        self.rooks_red, self.knights_red, self.bishops_red, self.queens_red, self.kings_red, self.pawns_red = [7], [8], [9], [10], [11], [12]        
+        self.rooks_blue, self.knights_blue, self.bishops_blue, self.queens_blue, self.kings_blue, self.pawns_blue = [1], [2], [3], [4], [5], [6]
         self.color_spots, self.red_pieces, self.blue_pieces, self.available_pieces = [1, 3, 5, 7, 8, 10, 12, 14, 17, 19, 21, 23, 24, 26, 28, 30, 33, 35, 37, 39, 40, 42, 44, 46, 49, 51, 53, 55, 56, 58, 60, 62], [7,8,9,10,11,12], [1,2,3,4,5,6], [13, 14, 15, 16, 17, 18, 19]
         self.available_en_passant_pieces = []
 
@@ -20,52 +19,41 @@ class Chess(object):
             -1:"\033[91m ● \033[0m" # red turn
         }
         # 94: blue, 91: red, 95: pink, 36: cyan, 32: green, 30: black
+        # black background: \033[40m
         self.colors = {
             1:"\033[94m{}\033[0m", 2:"\033[91m{}\033[0m", 3:"\033[95m{}\033[0m",
             4:"\033[36m{}\033[0m", 5:"\033[32m{}\033[0m", 9:"\033[30m{}\033[0m"
         }
         self.pieces = {
-            -1:"\033[32m ● \033[0m", 0:" · \033[0m", 1:"\033[94m ♜ \033[0m",
-            2:"\033[94m ♞ \033[0m", 3:"\033[94m ♝ \033[0m", 4:"\033[94m ♛ \033[0m",
-            5:"\033[94m ♚ \033[0m", 6:"\033[94m ♟ \033[0m", 7:"\033[91m ♜ \033[0m",
-            8:"\033[91m ♞ \033[0m", 9:"\033[91m ♝ \033[0m", 10:"\033[91m ♛ \033[0m",
-            11:"\033[91m ♚ \033[0m", 12:"\033[91m ♟ \033[0m", 13:"\033[32m ♜ \033[0m",
+            # cursors
+            -1:"\033[32m ● \033[0m", 0:" · \033[0m",
+            # 94 = blue
+            1:"\033[94m ♜ \033[0m", 2:"\033[94m ♞ \033[0m", 3:"\033[94m ♝ \033[0m", 4:"\033[94m ♛ \033[0m", 5:"\033[94m ♚ \033[0m", 6:"\033[94m ♟ \033[0m",
+            # 91 = red
+            7:"\033[91m ♜ \033[0m", 8:"\033[91m ♞ \033[0m", 9:"\033[91m ♝ \033[0m", 10:"\033[91m ♛ \033[0m", 11:"\033[91m ♚ \033[0m", 12:"\033[91m ♟ \033[0m",
+            # hovered/selected
+            13:"\033[32m ♜ \033[0m",
             14:"\033[32m ♞ \033[0m", 15:"\033[32m ♝ \033[0m", 16:"\033[32m ♛ \033[0m",
             17:"\033[32m ♚ \033[0m", 18:"\033[32m ♟ \033[0m", 19:"\033[36m ♟ \033[0m" 
         }
         self.pieces_letters = {
-            -1:"\033[36ma\033[0m", 0:"\033[90me\033[0m", 1:"\033[94mr\033[0m",
-            2:"\033[94mn\033[0m", 3:"\033[94mb\033[0m", 4:"\033[94mq\033[0m",
-            5:"\033[94mk\033[0m", 6:"\033[94mp\033[0m", 7:"\033[91mR\033[0m",
-            8:"\033[91mN\033[0m", 9:"\033[91mB\033[0m", 10:"\033[91mQ\033[0m",
-            11:"\033[91mK\033[0m", 12:"\033[91mP\033[0m", 13:"\033[36mЯ\033[0m",
-            14:"\033[36mИ\033[0m", 15:"\033[36mᗺ\033[0m", 16:"\033[36mϘ\033[0m",
-            17:"\033[36mꓘ\033[0m", 18:"\033[36mᑫ\033[0m", 19:"\033[36mc\033[0m"
+            -1:"\033[36ma\033[0m", 0:"\033[90me\033[0m", 1:"\033[94mr\033[0m", 2:"\033[94mn\033[0m", 3:"\033[94mb\033[0m", 4:"\033[94mq\033[0m", 5:"\033[94mk\033[0m", 6:"\033[94mp\033[0m", 7:"\033[91mR\033[0m", 8:"\033[91mN\033[0m", 9:"\033[91mB\033[0m", 10:"\033[91mQ\033[0m", 11:"\033[91mK\033[0m", 12:"\033[91mP\033[0m", 13:"\033[36mЯ\033[0m", 14:"\033[36mИ\033[0m", 15:"\033[36mᗺ\033[0m", 16:"\033[36mϘ\033[0m", 17:"\033[36mꓘ\033[0m", 18:"\033[36mᑫ\033[0m", 19:"\033[36mc\033[0m"
         }
-        # black background: \033[40m
 
         self.show_debug, self.touch_move_on = show_debug, touch_move_on
-        # self.window_w, self.window_h = self.init_terminal_window()
         self.board = self.populate_board()
         self.showing_moves, self.cursor_item, self.available_moves, self.available_capture_piece_moves, self.available_castle_rooks, self.selected = False, cursor, [], [], [], []
         self.current_turn, self.moves = starter, []
         self.blue_captures, self.red_captures = [], []
         self.red_moves, self.blue_moves, self.total_moves = 0, 0, 0
 
-        # self.move_meta = {"castle": "", "pieceLetter": "", "ambiquityLetter": "", "destinationLetter": "", "destinationNumber": "", "capture": "", "pawnPromotion": "", "pawnPromotionLetter": "", "check": "", "checkmate": ""}
-
-        self.en_passant = False
-        self.in_check = False
+        self.en_passant, self.in_check = False, False
         self.current_cursor, self.previous_cursor = [], []
         self.promotion_active, self.promotion_piece_index = False, 0
 
         # castling bools
         self.red_king_moved, self.red_left_rook_moved, self.red_right_rook_moved = False, False, False
         self.blue_king_moved, self.blue_left_rook_moved, self.blue_right_rook_moved = False, False, False
-
-    def init_terminal_window(self):
-        window_dim = shutil.get_terminal_size()
-        return window_dim[0], window_dim[1]-1
 
     def init_new_promotion(self):
         self.promotion_active = True
@@ -74,55 +62,35 @@ class Chess(object):
     def populate_board(self):
         flat = [0]*64
 
-        for i,v in enumerate(flat):
-            if i in self.rooks_blue:     flat[i] = 1
-            elif i in self.knights_blue: flat[i] = 2
-            elif i in self.bishops_blue: flat[i] = 3
-            elif i in self.queens_blue:  flat[i] = 4
-            elif i in self.kings_blue:   flat[i] = 5
-            elif i in self.pawns_blue:   flat[i] = 6
-            elif i in self.rooks_red:    flat[i] = 7
-            elif i in self.knights_red:  flat[i] = 8
-            elif i in self.bishops_red:  flat[i] = 9
-            elif i in self.queens_red:   flat[i] = 10
-            elif i in self.kings_red:    flat[i] = 11
-            elif i in self.pawns_red:    flat[i] = 12
-            else:                        flat[i] = 0
+        # default board
+        # for i,v in enumerate(flat):
+        #     if i in self.rooks_blue:     flat[i] = 1
+        #     elif i in self.knights_blue: flat[i] = 2
+        #     elif i in self.bishops_blue: flat[i] = 3
+        #     elif i in self.queens_blue:  flat[i] = 4
+        #     elif i in self.kings_blue:   flat[i] = 5
+        #     elif i in self.pawns_blue:   flat[i] = 6
+        #     elif i in self.rooks_red:    flat[i] = 7
+        #     elif i in self.knights_red:  flat[i] = 8
+        #     elif i in self.bishops_red:  flat[i] = 9
+        #     elif i in self.queens_red:   flat[i] = 10
+        #     elif i in self.kings_red:    flat[i] = 11
+        #     elif i in self.pawns_red:    flat[i] = 12
+        #     else:                        flat[i] = 0
 
         # promotion test
-        # flat[2]  = 9
-        # flat[4]  = 9
-        # flat[29] = 6
+        # flat[2], flat[4], flat[29]  = 9, 9, 6
+
+        # in_check test
+        # flat[61], flat[47], flat[45], flat[44] = 5, 11, 9, 9
 
         # castling test
-        # flat[18] = 6
-        # flat[3] = 7
-        # flat[63] = 1
-        # flat[60] = 5
-        # # flat[61] = 6
-        # flat[52] = 12
-        # flat[56] = 1
-
-        # flat[0] = 7
-        # flat[7] = 7
-        # flat[4] = 11
-        # flat[63] = 6
-        # flat[59] = 6
-
-        # flat[1] = 7
-        # flat[4] = 11
-        # flat[7] = 7
+        flat[18], flat[0], flat[63], flat[60], flat[61], flat[52], flat[56] = 6, 7, 1, 5, 6, 12, 1
 
         return np.reshape(flat, (8,8))
 
-    def change_turn(self):
-        self.current_turn = -1 if self.current_turn == 1 else 1
-
     def set_promotion_turn_start(self):
         self.promotion_piece_index = 6 if self.current_turn == 1 else 12
-
-    def set_new_cursor(self):
-        return self.current_cursor
 
     def cycle_promotion_piece_index(self, cursor, direction):
         self.promotion_piece_index = self.promotion_piece_index + 1 if direction == "right" else self.promotion_piece_index - 1
@@ -161,36 +129,51 @@ class Chess(object):
 
             self.board = np.reshape(temp_board, (8,8))
             self.selected, self.available_moves, self.previous_cursor = [], [], []
-            self.in_check = False
+            # self.in_check = False
 
     def clear_en_passants(self):
         self.available_en_passant_pieces.clear()
+        self.en_passant = False
 
-    def push_move(self, new_spot, capture, piece, set_promotion):
-        self.check_rook_king_move()
+    def push_move(self, capture, set_promotion, new_spot, piece):
+        self.check_rook_king_move(piece, self.previous_cursor[0][1])
         self.place_piece(new_spot, set_promotion)
         self.increase_moves(capture, piece)
-
         self.clear_moves()
-        if not set_promotion: self.change_turn()
+    
+    def push_move_castle(self, capture, set_promotion, rook_spot, rook_piece):
+        self.check_rook_king_move(self.previous_cursor[1], self.previous_cursor[0][1]) # king moved
+        self.check_rook_king_move(rook_piece, rook_spot) # rook moved
+        self.place_piece([self.previous_cursor[0][0], self.previous_cursor[0][1]-2], set_promotion)
+        self.place_piece_manual(rook_piece, rook_spot, [self.previous_cursor[0][0], self.previous_cursor[0][1]-1])
+        self.return_cursor([self.previous_cursor[0][0], self.previous_cursor[0][1]-2], True)
+        self.increase_moves(capture, self.previous_cursor[1])
+        self.clear_moves()
 
     def move_action(self, cursor):
+        promote = False
+
         if not self.promotion_active:
-            selected_spot  = [cursor[0], cursor[1]]
-            selected_cords = self.return_board_cords(selected_spot)
-            selected_piece = self.board[cursor[0]][cursor[1]]
+            selected_spot  = [cursor[0], cursor[1]]                 # clicked spot cords
+            selected_cords = self.return_board_cords(selected_spot) # clicked spot board cords str
+            selected_piece = self.board[cursor[0]][cursor[1]]       # clicked piece
 
             if self.selected:
                 if selected_cords in self.available_moves:
                     if selected_cords in self.available_capture_piece_moves:
                         promote = self.check_pawn_promotion(selected_spot)
-                        self.push_move(selected_spot, True, selected_piece, promote)
+                        self.push_move(True, promote, selected_spot, selected_piece)
                         self.clear_en_passants()
-                        self.en_passant, self.in_check = False, False
+                    elif selected_cords in self.available_castle_rooks:
+                        self.push_move_castle(False, False, selected_spot, selected_piece)
                     else:
                         self.check_pawn_en_passant(selected_spot, 1)
                         promote = self.check_pawn_promotion(selected_spot)
-                        self.push_move(selected_spot, False, selected_piece, promote)
+                        self.push_move(True, promote, selected_spot, selected_piece)
+                    
+                    if not promote: self.change_turn()
+                    # check if new pushed move puts king in check
+                    self.in_check = self._in_check(self.return_king_pos(self.current_turn))
             else:
                 if self.valid_select(selected_piece):
                     self.place_available_spots(cursor)
@@ -209,26 +192,26 @@ class Chess(object):
 
         self.total_moves += 1
 
-    def check_rook_king_move(self):
-        moved_piece, moveX = self.previous_cursor[1], self.previous_cursor[0][1]
 
-        if (not self.red_left_rook_moved)   and (moved_piece == 7)  and (moveX == 0): self.red_left_rook_moved   = True
-        if (not self.red_right_rook_moved)  and (moved_piece == 7)  and (moveX == 7): self.red_right_rook_moved  = True
-        if (not self.blue_left_rook_moved)  and (moved_piece == 1)  and (moveX == 0): self.blue_left_rook_moved  = True
-        if (not self.blue_right_rook_moved) and (moved_piece == 1)  and (moveX == 7): self.blue_right_rook_moved = True
-        if (not self.red_king_moved)        and (moved_piece == 11) and (moveX == 4): self.red_king_moved        = True
-        if (not self.blue_king_moved)       and (moved_piece == 5)  and (moveX == 4): self.blue_king_moved       = True
-
+    # CHECKS #
+    #
+    def check_rook_king_move(self, moved_piece, moved_X):
+        # moved_piece, moved_X = self.previous_cursor[1], self.previous_cursor[0][1]
+        if (not self.red_left_rook_moved)   and (moved_piece == 7)  and (moved_X == 0): self.red_left_rook_moved   = True
+        if (not self.red_right_rook_moved)  and (moved_piece == 7)  and (moved_X == 7): self.red_right_rook_moved  = True
+        if (not self.blue_left_rook_moved)  and (moved_piece == 1)  and (moved_X == 0): self.blue_left_rook_moved  = True
+        if (not self.blue_right_rook_moved) and (moved_piece == 1)  and (moved_X == 7): self.blue_right_rook_moved = True
+        if (not self.red_king_moved)        and (moved_piece == 11) and (moved_X == 4): self.red_king_moved        = True
+        if (not self.blue_king_moved)       and (moved_piece == 5)  and (moved_X == 4): self.blue_king_moved       = True
+    #
     def check_pawn_en_passant(self, _cursor, increment):
         if self.current_turn == 1:
             if (self.previous_cursor[1] == 6) and (_cursor[0] == self.previous_cursor[0][0]-increment) and (_cursor[1] == self.previous_cursor[0][1]):
                 self.clear_en_passants()
-                self.en_passant = False
         elif self.current_turn == -1:
             if (self.previous_cursor[1] == 12) and (_cursor[0] == self.previous_cursor[0][0]+increment) and (_cursor[1] == self.previous_cursor[0][1]):
                 self.clear_en_passants()
-                self.en_passant = False
-    
+    #
     def check_pawn_promotion(self, _cursor):
         if self.current_turn == 1:
             if (self.previous_cursor[1] == 6) and (_cursor[0] == 0): return True
@@ -236,61 +219,58 @@ class Chess(object):
             if (self.previous_cursor[1] == 12) and (_cursor[0] == 7): return True
 
         return False
-    
-    def check_left_rook(self, cursor, check_piece):
-        check_Y, check_X, empty_count = cursor[0], cursor[1], 0
+    #
+    def check_rook_castle(self, cursor, direction, check_piece):
+        # checks if to the right/left of the king is two empty squares, then a rook
+        check_Y, check_X, empty_count, hit_edge = cursor[0], cursor[1], 0, False
+        incr_count, incr, outer_edge = 0, (1 if direction == "right" else -1), (8 if direction == "right" else -1)
 
-        for i in range(1, 9):
-            if check_X-i == -1: break
-            if self.board[check_Y][check_X-i] in [-1, 0]: empty_count += 1
-            if self.board[check_Y][check_X-i] == check_piece: break
+        for i in range(check_X, outer_edge, incr):
+            incr_count += incr
+            if check_X+incr_count == outer_edge:
+                hit_edge = True
+                break
+            if self.board[check_Y][check_X+incr_count] in [-1, 0]: empty_count += 1
+            if self.board[check_Y][check_X+incr_count] == check_piece: break
 
-        return (empty_count == 3)
+        return (not hit_edge) and (empty_count >= 2)
+    #
+    def _in_check(self, cursor):
+        if not cursor == 0:
+            check_Y, check_X = cursor[0], cursor[1]
 
-    def check_right_rook(self, cursor, check_piece):
-        check_Y, check_X, empty_count = cursor[0], cursor[1], 0
+            rook_paths   = self.return_rook_paths(check_Y, check_X)
+            bishop_paths = self.return_bishop_paths(check_Y, check_X)
+            all_paths    = [rook_paths[0], rook_paths[1], rook_paths[2], rook_paths[3], bishop_paths[0], bishop_paths[1], bishop_paths[2], bishop_paths[3]]
 
-        for i in range(1, 9):
-            if check_X+i == 8: break
-            if self.board[check_Y][check_X+i] in [-1, 0]: empty_count += 1
-            if self.board[check_Y][check_X+i] == check_piece: break
+            friendly_pieces = self.blue_pieces if self.current_turn == 1 else self.red_pieces
+            enemy_pieces    = self.red_pieces if self.current_turn == 1 else self.blue_pieces
+            enemy_rooks     = self.rooks_red if self.current_turn == 1 else self.rooks_blue
+            enemy_bishops   = self.bishops_red if self.current_turn == 1 else self.bishops_blue
 
-        return (empty_count == 2)
+            for p in range(0, 8):
+                for c in range(0, 7):
+                    next_Y, next_X = all_paths[p][c][0], all_paths[p][c][1]
+                    if not self.inside_board(next_Y, next_X): break
+                    board_piece = self.board[next_Y][next_X]
+                    if board_piece in friendly_pieces: break
+                    if board_piece in enemy_pieces:
+                        if (p in range(0, 4)) and (board_piece in enemy_rooks):
+                            # self.in_check = True
+                            return True
+                        elif (p in range(4, 8)) and (board_piece in enemy_bishops):
+                            # self.in_check = True
+                            return True
+                        else: break
 
-    def not_in_check(self, cursor):
-        check_Y, check_X = cursor[0], cursor[1]
-
-        rook_paths   = self.return_rook_paths(check_Y, check_X)
-        bishop_paths = self.return_bishop_paths(check_Y, check_X)
-        all_paths    = [rook_paths[0], rook_paths[1], rook_paths[2], rook_paths[3], bishop_paths[0], bishop_paths[1], bishop_paths[2], bishop_paths[3]]
-
-        friendly_pieces = self.blue_pieces if self.current_turn == 1 else self.red_pieces
-        enemy_pieces    = self.red_pieces if self.current_turn == 1 else self.blue_pieces
-        enemy_rooks     = self.rooks_red if self.current_turn == 1 else self.rooks_blue
-        enemy_bishops   = self.bishops_red if self.current_turn == 1 else self.bishops_blue
-
-        for p in range(0, 8):
-            for c in range(0, 7):
-                next_Y, next_X = all_paths[p][c][0], all_paths[p][c][1]
-                if not self.inside_board(next_Y, next_X):         break
-                if self.board[next_Y][next_X] in friendly_pieces: break
-                if self.board[next_Y][next_X] in enemy_pieces:
-                    if (p in range(0, 4)) and (self.board[next_Y][next_X] in enemy_rooks):
-                        self.in_check = True
-                        return False
-                    elif (p in range(4, 8)) and (self.board[next_Y][next_X] in enemy_bishops):
-                        self.in_check = True
-                        return False
-                    else: break
-
-        self.in_check = False
-        return True
-
-    def inside_board(self, y, x):
-        return ((0 <= y <= 7) and (0 <= x <= 7))
+            # self.in_check = False
+        return False
 
 
-    def move_piece(self, cursor, direction):
+
+    # MOVING/SETTING #
+    #
+    def move_cursor(self, cursor, direction):
         if not self.promotion_active:
             self.current_cursor = self.check_next_col_row(cursor, direction)
             self.cursor_item    = self.current_cursor
@@ -298,7 +278,15 @@ class Chess(object):
             self.current_cursor = self.cycle_promotion_piece_index(self.current_cursor, direction)
 
         return self.current_cursor
-
+    #
+    def check_next_col_row(self, cursor, direction):
+        if direction == "right": cursor[1] = 0 if cursor[1] == 7 else cursor[1]+1
+        elif direction == "left": cursor[1] = 7 if cursor[1] == 0 else cursor[1]-1
+        elif direction == "up": cursor[0] = 7 if cursor[0] == 0 else cursor[0]-1
+        elif direction == "down": cursor[0] = 0 if cursor[0] == 7 else cursor[0]+1
+        
+        return cursor
+    #
     def place_piece(self, new_spot, set_promotion):
         sel_Y, sel_X, new_Y, new_X = self.selected[0], self.selected[1], new_spot[0], new_spot[1]
         check_king = 5 if self.current_turn == 1 else 11
@@ -320,7 +308,10 @@ class Chess(object):
             self.board[sel_Y][sel_X] = 0
 
         if set_promotion: self.init_new_promotion()
-        
+    def place_piece_manual(self, set_piece, old_spot, new_spot):
+        self.board[old_spot[0]][old_spot[1]] = 0
+        self.board[new_spot[0]][new_spot[1]] = set_piece
+    #  
     def place_available_spots(self, cursor):
         cursor_piece = self.board[cursor[0]][cursor[1]]
 
@@ -333,23 +324,39 @@ class Chess(object):
 
         if self.available_moves: self.selected = [cursor[0], cursor[1]]
         self.available_moves.sort()
-
+    #
     def clear_available_pieces(self, index, piece, _temp_board):
         _temp_board[index] = self.return_piece_from_available(piece)
-
         return _temp_board
-
+    #
+    def add_available_move(self, newY, newX, set_piece=-1):
+        self.board[newY][newX] = set_piece
+        self.available_moves.append(self.return_board_cords([newY, newX]))
+    #
     def check_set_capture_piece_available(self, y, x):
         if ((self.current_turn == 1) and (self.board[y][x] in self.red_pieces)) or ((self.current_turn == -1) and (self.board[y][x] in self.blue_pieces)):
-            self.board[y][x] = self.return_piece(self.board[y][x])
-            self.available_moves.append(self.return_board_cords([y, x]))
+            self.add_available_move(y, x, self.return_piece(self.board[y][x]))
             self.available_capture_piece_moves.append(self.return_board_cords([y, x]))
-
+    #
     def set_castle_rook_piece_available(self, y, x):
-        self.board[y][x] = self.return_piece(self.board[y][x], True)
-        self.available_moves.append(self.return_board_cords([y, x]))
+        self.add_available_move(y, x, self.return_piece(self.board[y][x], True))
         self.available_castle_rooks.append(self.return_board_cords([y, x]))
 
+
+
+    # UTILS #
+    #
+    def change_turn(self):
+        # red = -1, blue = 1
+        self.current_turn = -1 if self.current_turn == 1 else 1
+    # 
+    def inside_board(self, y, x):
+        return ((0 <= y <= 7) and (0 <= x <= 7))
+    #
+    def return_cursor(self, set_cursor, _set=False):
+        if _set: self.current_cursor = set_cursor
+        return self.current_cursor
+    # 
     def return_piece(self, piece_value, castle = False):
         if piece_value in [1,7]:    return 19 if castle else 13
         elif piece_value in [2,8]:  return 14
@@ -357,17 +364,29 @@ class Chess(object):
         elif piece_value in [4,10]: return 16
         elif piece_value in [5,11]: return 17
         elif piece_value in [6,12]: return 18
+    #
+    def return_king_pos(self, turn):
+        found_king, find_king = 0, (5 if turn == 1 else 11)
+        kings = np.where(self.board == find_king)
+        if (not len(kings[0]) == 0) and (not len(kings[1]) == 0):
+            found_king = [kings[0][0], kings[1][0]]
 
+        return found_king
+    #
     def return_piece_from_available(self, piece):
         if self.current_turn == 1:
             return 1 if piece == 19 else piece-6
         elif self.current_turn == -1:
             return 7 if piece == 19 else piece-12
-
+    #
     def return_board_cords(self, spot):
         spot_Y, spot_X = spot[0], spot[1]
         return "{}{}".format(string.ascii_lowercase[spot_X], -(spot_Y-8))
 
+
+
+    # PATHS #
+    #
     def return_rook_paths(self, y, x):
         up    = [[y-1, x], [y-2, x], [y-3, x], [y-4, x], [y-5, x], [y-6, x], [y-7, x]]
         right = [[y, x+1], [y, x+2], [y, x+3], [y, x+4], [y, x+5], [y, x+6], [y, x+7]]
@@ -375,8 +394,9 @@ class Chess(object):
         left  = [[y, x-1], [y, x-2], [y, x-3], [y, x-4], [y, x-5], [y, x-6], [y, x-7]]
         
         return [up, right, down, left]
-
+    #
     def return_bishop_paths(self, y, x):
+        # wasnt adding the spot were checking to the list of paths
         top_left     = [[y-1, x-1], [y-2, x-2], [y-3, x-3], [y-4, x-4], [y-5, x-5], [y-6, x-6], [y-7, x-7]]
         top_right    = [[y-1, x+1], [y-2, x+2], [y-3, x+3], [y-4, x+4], [y-5, x+5], [y-6, x+6], [y-7, x+7]]
         bottom_right = [[y+1, x+1], [y+2, x+2], [y+3, x+3], [y+4, x+4], [y+5, x+5], [y+6, x+6], [y+7, x+7]]
@@ -385,6 +405,9 @@ class Chess(object):
         return [top_left, top_right, bottom_right, bottom_left]
 
 
+
+    # AVAILABLE MOVES #
+    #
     def place_pawns_available_moves(self, cursor):
         pawn_Y, pawn_X = cursor[0], cursor[1]
 
@@ -403,24 +426,21 @@ class Chess(object):
         for u in range(0, 1):
             if self.inside_board(vert_ys[u], vert_xs[u]):
                 if (self.board[vert_ys[u]][vert_xs[u]] == 0):
-                    self.board[vert_ys[u]][vert_xs[u]] = -1
-                    self.available_moves.append(self.return_board_cords([vert_ys[u], vert_xs[u]]))
+                    self.add_available_move(vert_ys[u], vert_xs[u])
 
-        # vert 1
+        # vert 2
         for u in range(1, 2):
             if pawn_Y == row_check:
                 if self.inside_board(vert_ys[u], vert_xs[u]):
                     if (self.board[vert_ys[u]][vert_xs[u]] == 0):
-                        self.board[vert_ys[u]][vert_xs[u]] = -1
-                        self.available_moves.append(self.return_board_cords([vert_ys[u], vert_xs[u]]))
+                        self.add_available_move(vert_ys[u], vert_xs[u])
                         if (vert_ys[u] == pawn_Y+2) or (vert_ys[u] == pawn_Y-2): self.available_en_passant_pieces.append([vert_ys[u], vert_xs[u]])
         # diag
         for d in range(0, 2):
             if self.inside_board(diag_ys[d], diag_xs[d]):
                 if self.board[diag_ys[d]][diag_xs[d]] in enemy_pieces:
                     if (self.board[diag_ys[d]][diag_xs[d]] == 0):
-                        self.board[diag_ys[d]][diag_xs[d]] = -1
-                        self.available_moves.append(self.return_board_cords([diag_ys[d], diag_xs[d]]))
+                        self.add_available_move(diag_ys[d], diag_xs[d])
                     else:
                         self.check_set_capture_piece_available(diag_ys[d], diag_xs[d])
         # en passant
@@ -430,11 +450,11 @@ class Chess(object):
                     if (len(self.available_en_passant_pieces) >= 1) and ([en_passant_ys[e], en_passant_xs[e]] == self.available_en_passant_pieces[0]):
                         self.en_passant = True
                         self.check_set_capture_piece_available(en_passant_ys[e], en_passant_xs[e])
-
+    #
     def place_queens_available_moves(self, cursor):
         self.place_rooks_available_moves(cursor)
         self.place_bishops_available_moves(cursor)
-
+    #
     def place_bishops_available_moves(self, cursor):
         bishop_Y, bishop_X = cursor[0], cursor[1]
 
@@ -446,13 +466,12 @@ class Chess(object):
                 next_Y, next_X = bishop_paths[p][b][0], bishop_paths[p][b][1]
                 if self.inside_board(next_Y, next_X):
                     if self.board[next_Y][next_X] == 0:
-                        self.board[next_Y][next_X] = -1
-                        self.available_moves.append(self.return_board_cords([next_Y, next_X]))
+                        self.add_available_move(next_Y, next_X)
                     else:
                         self.check_set_capture_piece_available(next_Y, next_X)
                         break
                 else: break
-
+    #
     def place_knights_available_moves(self, cursor):
         knights_Y, knights_X = cursor[0], cursor[1]
 
@@ -462,11 +481,10 @@ class Chess(object):
             next_Y, next_X = kights_paths[i][0], kights_paths[i][1]
             if self.inside_board(next_Y, next_X):
                 if self.board[next_Y][next_X] == 0:
-                    self.board[next_Y][next_X] = -1
-                    self.available_moves.append(self.return_board_cords([next_Y, next_X]))
+                    self.add_available_move(next_Y, next_X)
                 else:
                     self.check_set_capture_piece_available(next_Y, next_X)
-
+    #
     def place_kings_available_moves(self, cursor):
         king_Y, king_X = cursor[0], cursor[1]
 
@@ -476,11 +494,12 @@ class Chess(object):
         for i in range(0, 8):
             next_Y, next_X = kings_paths[i][0], kings_paths[i][1]
             if self.inside_board(next_Y, next_X):
-                if self.board[next_Y][next_X] == 0:
-                    self.board[next_Y][next_X] = -1
-                    self.available_moves.append(self.return_board_cords([next_Y, next_X]))
+                if self.board[next_Y][next_X] == 0: # 0 = empty square
+                    # check if available spot wont put king in check, then append
+                    if not self._in_check([next_Y, next_X]):
+                        self.add_available_move(next_Y, next_X)
                 else:
-                    self.check_set_capture_piece_available(next_Y, next_X)
+                    self.check_set_capture_piece_available(next_Y, next_X) # potential enemy piece
 
         # check castle
         if self.current_turn == 1: king_moved, right_rook_moved, left_rook_moved, rook = self.blue_king_moved, self.blue_right_rook_moved, self.blue_left_rook_moved, 1
@@ -488,16 +507,19 @@ class Chess(object):
 
         # right 2 (castle)
         if (not king_moved and not right_rook_moved):
-            if self.not_in_check([king_Y, king_X]) and self.not_in_check([king_Y, king_X+1]) and self.not_in_check([king_Y, king_X+2]):
-                if self.check_right_rook(cursor, rook):
+            if (not self._in_check([king_Y, king_X])) and (not self._in_check([king_Y, king_X+1])) and (not self._in_check([king_Y, king_X+2])):
+                if self.check_rook_castle(cursor, "right", rook):
                     self.set_castle_rook_piece_available(king_Y, king_X+3)
         # left 3 (castle)
         if (not king_moved and not left_rook_moved):
-            if self.not_in_check([king_Y, king_X]) and self.not_in_check([king_Y, king_X-1]) and self.not_in_check([king_Y, king_X-2]) and self.not_in_check([king_Y, king_X-3]):
-                if self.check_left_rook(cursor, rook):
+            if (not self._in_check([king_Y, king_X])) and (not self._in_check([king_Y, king_X-1])) and (not self._in_check([king_Y, king_X-2])) and (not self._in_check([king_Y, king_X-3])):
+                if self.check_rook_castle(cursor, "left", rook):
                     self.set_castle_rook_piece_available(king_Y, king_X-4)
 
+        # check appended available moves for in_check, then remove them
 
+        # if available moves are reduced down to 0 because they were all in check, check mate
+    #
     def place_rooks_available_moves(self, cursor):
         rook_Y, rook_X = cursor[0], cursor[1]
 
@@ -509,30 +531,23 @@ class Chess(object):
                 next_Y, next_X = rook_paths[p][r][0], rook_paths[p][r][1]
                 if (0 <= next_Y <= 7) and (0 <= next_X <= 7):
                     if self.board[next_Y][next_X] == 0:
-                        self.board[next_Y][next_X] = -1
-                        self.available_moves.append(self.return_board_cords([next_Y, next_X]))
+                        self.add_available_move(next_Y, next_X)
                     else:
                         self.check_set_capture_piece_available(next_Y, next_X)
                         break
 
 
-    def check_next_col_row(self, cursor, direction):
-        if direction == "right": cursor[1] = 0 if cursor[1] == 7 else cursor[1]+1
-        elif direction == "left": cursor[1] = 7 if cursor[1] == 0 else cursor[1]-1
-        elif direction == "up": cursor[0] = 7 if cursor[0] == 0 else cursor[0]-1
-        elif direction == "down": cursor[0] = 0 if cursor[0] == 7 else cursor[0]+1
-        
-        return cursor
     
     def draw_board(self, cursor):
         os.system('clear')
         col_idx, row_num, letters = 0, 8, ""
 
         if self.show_debug:
+            print()
             # print("                          \033[90mDEBUG \033[0m\n")
             # print(" self.promotion_active:  {}".format(self.promotion_active))
             # print(" self.en_passant:        {}".format(self.en_passant))
-            # print(" self.in_check:          {}".format(self.in_check))
+            print(" self.in_check:          {} {}".format(self.in_check, self.turns[self.current_turn]))
             # print(" self.avail_en_passant:  {}".format(self.available_en_passant_pieces))
             print(" self.previous_cursor:   {}".format(self.previous_cursor))
 
@@ -556,14 +571,16 @@ class Chess(object):
             # print(" self.red_captures:     {}".format(self.colors[1].format(','.join([self.colors[2].format(x) for x in self.red_captures]))))
 
         # red captures top
-        print("\n    {} {} {} {} {} {}".format(
-            ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 6]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 3]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 2]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 1]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 4]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 5]) 
-        ))
+        if len(self.red_captures) >= 1:
+            print("\n    {} {} {} {} {} {}".format(
+                ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 6]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 3]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 2]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 1]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 4]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.red_captures if x == 5]) 
+            ))
+        else: print()
 
         for row_index, row in enumerate(self.board):
             # print(" ", end="")
@@ -628,14 +645,16 @@ class Chess(object):
         print("   {}".format(letters), end="")
 
         # blue captures bottom
-        print("\n    {} {} {} {} {} {}".format(
-            ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 12]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 9]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 8]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 7]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 10]),
-            ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 11]) 
-        ))
+        if len(self.blue_captures) >= 1:
+            print("\n    {} {} {} {} {} {}".format(
+                ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 12]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 9]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 8]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 7]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 10]),
+                ''.join([self.pieces[x].replace(' ', '') for x in self.blue_captures if x == 11]) 
+            ))
+        else: print()
 
         print("\n ⭠ ⭡⭣ ⭢  to move.\n SPACE to select.\n BACKSPACE to deselect.\n ESC to exit.\n")
 
@@ -671,20 +690,20 @@ def play_console():
             k = getkey()
 
             if k == 'up':
-                cursor = chess.move_piece(cursor, "up")
+                cursor = chess.move_cursor(cursor, "up")
                 chess.draw_board(cursor)
             elif k == 'right':
-                cursor = chess.move_piece(cursor, "right")
+                cursor = chess.move_cursor(cursor, "right")
                 chess.draw_board(cursor)
             elif k == 'down':
-                cursor = chess.move_piece(cursor, "down")
+                cursor = chess.move_cursor(cursor, "down")
                 chess.draw_board(cursor)
             elif k == 'left':
-                cursor = chess.move_piece(cursor, "left")
+                cursor = chess.move_cursor(cursor, "left")
                 chess.draw_board(cursor)
             elif k == 'space':
                 chess.move_action(cursor)
-                cursor = chess.set_new_cursor()
+                cursor = chess.return_cursor(cursor)
                 chess.draw_board(cursor)
             elif k in ['backspace', 'esc']:
                 chess.clear_moves()
@@ -732,7 +751,6 @@ def getkey():
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description="Play Chess in the terminal. Written in Python.")
     opt = ap._action_groups.pop()
-    req = ap.add_argument_group('required arguments')
     opt.add_argument("-V","--version",action="store_true",help="show script version")
     opt.add_argument("-s","--starter",const=1,type=int,choices=range(0,2),nargs="?",help="set starting piece. Blue/Red (0, 1)")
     opt.add_argument("-t","--touch_move",action="store_true",help="set \"Touch-move\" rule on ON")
