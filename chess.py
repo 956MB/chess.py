@@ -82,25 +82,25 @@ class Chess(object):
         # flat[2], flat[4], flat[29]  = 9, 9, 6
 
         # in_check test
-        # flat[61], flat[47], flat[45], flat[44] = 5, 11, 9, 9
+        flat[61], flat[47], flat[45], flat[44] = 5, 11, 9, 9
 
         # castling test
-        flat[18], flat[0], flat[63], flat[60], flat[61], flat[52], flat[56] = 6, 7, 1, 5, 6, 12, 1
+        # flat[18], flat[0], flat[63], flat[60], flat[61], flat[52], flat[56] = 6, 7, 1, 5, 6, 12, 1
 
         return np.reshape(flat, (8,8))
 
     def set_promotion_turn_start(self):
-        self.promotion_piece_index = 6 if self.current_turn == 1 else 12
+        self.promotion_piece_index = 6 if self.turn(1) else 12
 
     def cycle_promotion_piece_index(self, cursor, direction):
         self.promotion_piece_index = self.promotion_piece_index + 1 if direction == "right" else self.promotion_piece_index - 1
 
-        if self.current_turn == 1:
+        if self.turn(1):
             if self.promotion_piece_index == 7: self.promotion_piece_index = 1
             if self.promotion_piece_index == 0: self.promotion_piece_index = 6
             if self.promotion_piece_index == 5:
                 self.promotion_piece_index = self.promotion_piece_index + 1 if direction == "right" else self.promotion_piece_index - 1
-        elif self.current_turn == -1:
+        elif self.turn(-1):
             if self.promotion_piece_index == 13: self.promotion_piece_index = 7
             if self.promotion_piece_index == 6: self.promotion_piece_index  = 12
             if self.promotion_piece_index == 11:
@@ -112,11 +112,8 @@ class Chess(object):
         return cursor
 
     def valid_select(self, selected):
-        if self.current_turn == 1:
-            if selected in self.blue_pieces: return True
-        elif self.current_turn == -1:
-            if selected in self.red_pieces: return True
-
+        # only allows selection of correct pieces when its your turn
+        if selected in (self.blue_pieces if self.turn(1) else self.red_pieces): return True
         return False
 
     def clear_moves(self):
@@ -144,8 +141,10 @@ class Chess(object):
     def push_move_castle(self, capture, set_promotion, rook_spot, rook_piece):
         self.check_rook_king_move(self.previous_cursor[1], self.previous_cursor[0][1]) # king moved
         self.check_rook_king_move(rook_piece, rook_spot) # rook moved
+        # places king in new castle spot, then moves rook over one space next to it
         self.place_piece([self.previous_cursor[0][0], self.previous_cursor[0][1]-2], set_promotion)
         self.place_piece_manual(rook_piece, rook_spot, [self.previous_cursor[0][0], self.previous_cursor[0][1]-1])
+        # manually set current cursor to new king castle spot
         self.return_cursor([self.previous_cursor[0][0], self.previous_cursor[0][1]-2], True)
         self.increase_moves(capture, self.previous_cursor[1])
         self.clear_moves()
@@ -183,10 +182,10 @@ class Chess(object):
             self.change_turn()
 
     def increase_moves(self, capture, piece):
-        if self.current_turn == 1:
+        if self.turn(1):
             self.blue_moves += 1
             if capture: self.blue_captures.append(self.return_piece_from_available(piece))
-        elif self.current_turn == -1:
+        elif self.turn(-1):
             self.red_moves += 1
             if capture: self.red_captures.append(self.return_piece_from_available(piece))
 
@@ -205,19 +204,15 @@ class Chess(object):
         if (not self.blue_king_moved)       and (moved_piece == 5)  and (moved_X == 4): self.blue_king_moved       = True
     #
     def check_pawn_en_passant(self, _cursor, increment):
-        if self.current_turn == 1:
+        if self.turn(1):
             if (self.previous_cursor[1] == 6) and (_cursor[0] == self.previous_cursor[0][0]-increment) and (_cursor[1] == self.previous_cursor[0][1]):
                 self.clear_en_passants()
-        elif self.current_turn == -1:
+        elif self.turn(-1):
             if (self.previous_cursor[1] == 12) and (_cursor[0] == self.previous_cursor[0][0]+increment) and (_cursor[1] == self.previous_cursor[0][1]):
                 self.clear_en_passants()
     #
     def check_pawn_promotion(self, _cursor):
-        if self.current_turn == 1:
-            if (self.previous_cursor[1] == 6) and (_cursor[0] == 0): return True
-        elif self.current_turn == -1:
-            if (self.previous_cursor[1] == 12) and (_cursor[0] == 7): return True
-
+        if (self.previous_cursor[1] == (6 if self.turn(1) else 12)) and (_cursor[0] == (0 if self.turn(1) else 7)): return True
         return False
     #
     def check_rook_castle(self, cursor, direction, check_piece):
@@ -239,14 +234,15 @@ class Chess(object):
         if not cursor == 0:
             check_Y, check_X = cursor[0], cursor[1]
 
+            # TODO: add queen, knight, and pawn 'paths' to see if king is in check from those, only checking rooks/bishops right now
             rook_paths   = self.return_rook_paths(check_Y, check_X)
             bishop_paths = self.return_bishop_paths(check_Y, check_X)
             all_paths    = [rook_paths[0], rook_paths[1], rook_paths[2], rook_paths[3], bishop_paths[0], bishop_paths[1], bishop_paths[2], bishop_paths[3]]
 
-            friendly_pieces = self.blue_pieces if self.current_turn == 1 else self.red_pieces
-            enemy_pieces    = self.red_pieces if self.current_turn == 1 else self.blue_pieces
-            enemy_rooks     = self.rooks_red if self.current_turn == 1 else self.rooks_blue
-            enemy_bishops   = self.bishops_red if self.current_turn == 1 else self.bishops_blue
+            friendly_pieces = self.blue_pieces if self.turn(1) else self.red_pieces
+            enemy_pieces    = self.red_pieces if self.turn(1) else self.blue_pieces
+            enemy_rooks     = self.rooks_red if self.turn(1) else self.rooks_blue
+            enemy_bishops   = self.bishops_red if self.turn(1) else self.bishops_blue
 
             for p in range(0, 8):
                 for c in range(0, 7):
@@ -289,7 +285,7 @@ class Chess(object):
     #
     def place_piece(self, new_spot, set_promotion):
         sel_Y, sel_X, new_Y, new_X = self.selected[0], self.selected[1], new_spot[0], new_spot[1]
-        check_king = 5 if self.current_turn == 1 else 11
+        check_king = 5 if self.turn(1) else 11
 
         if (self.board[sel_Y][sel_X] == check_king) and (self.board[new_Y][new_X] == 19) and (new_X in [0, 7]):
             # print(self.board[newY][newX], selX, self.return_piece_from_available(self.board[newY][newX]))
@@ -334,7 +330,7 @@ class Chess(object):
         self.available_moves.append(self.return_board_cords([newY, newX]))
     #
     def check_set_capture_piece_available(self, y, x):
-        if ((self.current_turn == 1) and (self.board[y][x] in self.red_pieces)) or ((self.current_turn == -1) and (self.board[y][x] in self.blue_pieces)):
+        if ((self.turn(1)) and (self.board[y][x] in self.red_pieces)) or ((self.turn(-1)) and (self.board[y][x] in self.blue_pieces)):
             self.add_available_move(y, x, self.return_piece(self.board[y][x]))
             self.available_capture_piece_moves.append(self.return_board_cords([y, x]))
     #
@@ -346,9 +342,12 @@ class Chess(object):
 
     # UTILS #
     #
+    def turn(self, check):
+        return self.current_turn == check
+    # 
     def change_turn(self):
         # red = -1, blue = 1
-        self.current_turn = -1 if self.current_turn == 1 else 1
+        self.current_turn = -1 if self.turn(1) else 1
     # 
     def inside_board(self, y, x):
         return ((0 <= y <= 7) and (0 <= x <= 7))
@@ -374,9 +373,9 @@ class Chess(object):
         return found_king
     #
     def return_piece_from_available(self, piece):
-        if self.current_turn == 1:
+        if self.turn(1):
             return 1 if piece == 19 else piece-6
-        elif self.current_turn == -1:
+        elif self.turn(-1):
             return 7 if piece == 19 else piece-12
     #
     def return_board_cords(self, spot):
@@ -388,20 +387,11 @@ class Chess(object):
     # PATHS #
     #
     def return_rook_paths(self, y, x):
-        up    = [[y-1, x], [y-2, x], [y-3, x], [y-4, x], [y-5, x], [y-6, x], [y-7, x]]
-        right = [[y, x+1], [y, x+2], [y, x+3], [y, x+4], [y, x+5], [y, x+6], [y, x+7]]
-        down  = [[y+1, x], [y+2, x], [y+3, x], [y+4, x], [y+5, x], [y+6, x], [y+7, x]]
-        left  = [[y, x-1], [y, x-2], [y, x-3], [y, x-4], [y, x-5], [y, x-6], [y, x-7]]
-        
+        up, right, down, left = [[y-i, x] for i in range(1, 8)], [[y, x+i] for i in range(1, 8)], [[y+i, x] for i in range(1, 8)], [[y, x-i] for i in range(1, 8)]
         return [up, right, down, left]
     #
     def return_bishop_paths(self, y, x):
-        # wasnt adding the spot were checking to the list of paths
-        top_left     = [[y-1, x-1], [y-2, x-2], [y-3, x-3], [y-4, x-4], [y-5, x-5], [y-6, x-6], [y-7, x-7]]
-        top_right    = [[y-1, x+1], [y-2, x+2], [y-3, x+3], [y-4, x+4], [y-5, x+5], [y-6, x+6], [y-7, x+7]]
-        bottom_right = [[y+1, x+1], [y+2, x+2], [y+3, x+3], [y+4, x+4], [y+5, x+5], [y+6, x+6], [y+7, x+7]]
-        bottom_left  = [[y+1, x-1], [y+2, x-2], [y+3, x-3], [y+4, x-4], [y+5, x-5], [y+6, x-6], [y+7, x-7]]
-        
+        top_left, top_right, bottom_right, bottom_left = [[y-i, x-i] for i in range(1, 8)], [[y-i, x+i] for i in range(1, 8)], [[y+i, x+i] for i in range(1, 8)], [[y+i, x-i] for i in range(1, 8)]
         return [top_left, top_right, bottom_right, bottom_left]
 
 
@@ -410,17 +400,16 @@ class Chess(object):
     #
     def place_pawns_available_moves(self, cursor):
         pawn_Y, pawn_X = cursor[0], cursor[1]
-
         up_ys_blue, up_xs_blue, down_ys_red, down_xs_red     = [pawn_Y-1, pawn_Y-2], [pawn_X, pawn_X], [pawn_Y+1, pawn_Y+2], [pawn_X, pawn_X]
         diag_ys_blue, diag_xs_blue, diag_ys_red, diag_xs_red = [pawn_Y-1, pawn_Y-1], [pawn_X-1, pawn_X+1], [pawn_Y+1, pawn_Y+1], [pawn_X-1, pawn_X+1]
         en_passant_ys, en_passant_xs                         = [pawn_Y, pawn_Y], [pawn_X-1, pawn_X+1]
 
-        vert_ys      = up_ys_blue if self.current_turn == 1 else down_ys_red
-        vert_xs      = up_xs_blue if self.current_turn == 1 else down_xs_red
-        diag_ys      = diag_ys_blue if self.current_turn == 1 else diag_ys_red
-        diag_xs      = diag_xs_blue if self.current_turn == 1 else diag_xs_red
-        enemy_pieces = self.red_pieces if self.current_turn == 1 else self.blue_pieces
-        row_check    = 6 if self.current_turn == 1 else 1
+        vert_ys      = up_ys_blue if self.turn(1) else down_ys_red
+        vert_xs      = up_xs_blue if self.turn(1) else down_xs_red
+        diag_ys      = diag_ys_blue if self.turn(1) else diag_ys_red
+        diag_xs      = diag_xs_blue if self.turn(1) else diag_xs_red
+        enemy_pieces = self.red_pieces if self.turn(1) else self.blue_pieces
+        row_check    = 6 if self.turn(1) else 1
 
         # vert 1
         for u in range(0, 1):
@@ -457,13 +446,12 @@ class Chess(object):
     #
     def place_bishops_available_moves(self, cursor):
         bishop_Y, bishop_X = cursor[0], cursor[1]
-
-        bishop_paths = self.return_bishop_paths(bishop_Y, bishop_X)
+        bishop_spots = self.return_bishop_paths(bishop_Y, bishop_X)
 
         # loop up-left/up-right/down-right/down-left paths
         for p in range(0,4):
             for b in range(0, 7):
-                next_Y, next_X = bishop_paths[p][b][0], bishop_paths[p][b][1]
+                next_Y, next_X = bishop_spots[p][b][0], bishop_spots[p][b][1]
                 if self.inside_board(next_Y, next_X):
                     if self.board[next_Y][next_X] == 0:
                         self.add_available_move(next_Y, next_X)
@@ -474,11 +462,10 @@ class Chess(object):
     #
     def place_knights_available_moves(self, cursor):
         knights_Y, knights_X = cursor[0], cursor[1]
-
-        kights_paths = [[knights_Y-1, knights_X-2], [knights_Y-2, knights_X-1], [knights_Y-1, knights_X+2], [knights_Y-2, knights_X+1], [knights_Y-1, knights_X-2], [knights_Y+2, knights_X-1], [knights_Y+1, knights_X+2], [knights_Y+2, knights_X+1]]
+        knights_spots = [[knights_Y-1, knights_X-2], [knights_Y-2, knights_X-1], [knights_Y-1, knights_X+2], [knights_Y-2, knights_X+1], [knights_Y-1, knights_X-2], [knights_Y+2, knights_X-1], [knights_Y+1, knights_X+2], [knights_Y+2, knights_X+1]]
 
         for i in range(0, 8):
-            next_Y, next_X = kights_paths[i][0], kights_paths[i][1]
+            next_Y, next_X = knights_spots[i][0], knights_spots[i][1]
             if self.inside_board(next_Y, next_X):
                 if self.board[next_Y][next_X] == 0:
                     self.add_available_move(next_Y, next_X)
@@ -487,12 +474,11 @@ class Chess(object):
     #
     def place_kings_available_moves(self, cursor):
         king_Y, king_X = cursor[0], cursor[1]
-
-        kings_paths = [[king_Y, king_X-1], [king_Y, king_X+1], [king_Y-1, king_X], [king_Y+1, king_X], [king_Y-1, king_X-1], [king_Y-1, king_X+1], [king_Y+1, king_X-1], [king_Y+1, king_X+1]]
+        kings_spots = [[king_Y, king_X-1], [king_Y, king_X+1], [king_Y-1, king_X], [king_Y+1, king_X], [king_Y-1, king_X-1], [king_Y-1, king_X+1], [king_Y+1, king_X-1], [king_Y+1, king_X+1]]
 
         # loop spots
         for i in range(0, 8):
-            next_Y, next_X = kings_paths[i][0], kings_paths[i][1]
+            next_Y, next_X = kings_spots[i][0], kings_spots[i][1]
             if self.inside_board(next_Y, next_X):
                 if self.board[next_Y][next_X] == 0: # 0 = empty square
                     # check if available spot wont put king in check, then append
@@ -502,8 +488,8 @@ class Chess(object):
                     self.check_set_capture_piece_available(next_Y, next_X) # potential enemy piece
 
         # check castle
-        if self.current_turn == 1: king_moved, right_rook_moved, left_rook_moved, rook = self.blue_king_moved, self.blue_right_rook_moved, self.blue_left_rook_moved, 1
-        elif self.current_turn == -1: king_moved, right_rook_moved, left_rook_moved, rook = self.red_king_moved, self.red_right_rook_moved, self.red_left_rook_moved, 7
+        if self.turn(1): king_moved, right_rook_moved, left_rook_moved, rook = self.blue_king_moved, self.blue_right_rook_moved, self.blue_left_rook_moved, 1
+        elif self.turn(-1): king_moved, right_rook_moved, left_rook_moved, rook = self.red_king_moved, self.red_right_rook_moved, self.red_left_rook_moved, 7
 
         # right 2 (castle)
         if (not king_moved and not right_rook_moved):
